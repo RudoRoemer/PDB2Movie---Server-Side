@@ -1,0 +1,17 @@
+variables passed:
+    name    -- 
+    res     -- 
+    waters  -- 
+    combi   -- 
+    multi   -- 
+    threed  -- 
+    confs   -- 
+    freq    -- 
+    step    -- 
+    dstep   -- 
+    modList -- 
+    molList -- 
+    cutList -- 
+
+connecting to processing server...
+exit code: 255
