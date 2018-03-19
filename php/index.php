@@ -1,5 +1,9 @@
 <?php
 
+	$configs = parse_ini_file("/var/www/html/config.conf");
+
+	die(var_dump(posix_getpwuid(posix_getpgid())));
+
 	include "FileChecker.php";
 	include "PdbChecker.php";
 	include "PythonChecker.php";
@@ -25,7 +29,6 @@
             		endOp(".py file: " . $pyFile->didItPass());
 		} else {
 			move_uploaded_file($_FILES['pyFile']['tmp_name'], $pyFile->getTmpLocation());
-
 		}
 	}
 	
@@ -89,9 +92,9 @@
 	$remote_host_fp = "CC170F7C369A5603B18ED7729CE243AD";
 	$user = 'phsbqz';
 	$location='/storage/disqs/';
-	$public_key = '/var/www/auth/id_rsa.pub';
-	$private_key = '/var/www/auth/id_rsa';
-	$passphrase = 'penicillin';
+	$public_key = $configs["sshPublic"];
+	$private_key = $configs["sshPrivate"];
+
 	$ssh_error = "SSH command failed. Error on the processing server side.";
 			
 	//establish connection with remote SCRTP computer
@@ -117,8 +120,8 @@
 	
 	$output;
 	$rawname = rtrim($name, '.pdb');
-	echo $newLoc . "\n";
-	echo "/storage/disqs/" . $user . "/pdb_tmp/" . $name . "\n"; 
+	//echo $newLoc . "\n";
+	//echo "/storage/disqs/" . $user . "/pdb_tmp/" . $name . "\n";
 	if (!(ssh2_scp_send($conn_ssh, $newLoc, "/storage/disqs/" . $user . "/pdb_tmp/" . $name ))) {
 		endOp("Error uploading pdb file to processing server.");
 	}
@@ -160,12 +163,78 @@
 	$cutList,
 	$location,
 	$user);
-	echo $qsub_cmd;
-	if (!(ssh2_exec($conn_ssh, $qsub_cmd))) {
-		endOp($ssh_error . 3);
+
+	//endOp("Request Sent. DB not connected stmt->getResult() undefined. requires more up-to-date PHP, will be sorted.");
+
+	$sqlServer = $configs["sqlServer"];
+	$sqlUser = $configs["sqlUser"];
+	$sqlPass = $configs["sqlPassword"];
+	$sqlDB = $configs["sqlDB"];
+
+	//if connection fails, stop script
+	$conn_sql = mysqli_connect($sqlServer,$sqlUser, $sqlPass, $sqlDB) or die("Connection failed: " . mysql_connect_error());
+
+	$getID = "SELECT user_id FROM Users WHERE email=?;";
+
+	$stmt = $conn_sql->stmt_init();
+    $stmt = $conn_sql->prepare($getID);
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
+	$sqlRes = $stmt->get_result();
+	$row = $sqlRes->fetch_assoc();
+
+	if (!$row) {
+        $stmt = $conn_sql->stmt_init();
+        $stmt = $conn_sql->prepare("INSERT INTO Users VALUES (?, 3, NULL);");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+
+        $emails_id = mysqli_stmt_insert_id($stmt);
+
+	} else {
+
+		$emails_id = $row["user_id"];
+
 	}
-	
-	//echo print_r(posix_getpwuid(posix_geteuid()));
+
+	//while ($row = $sqlRes->fetch_assoc()) {
+	//	print($row["email"]);
+	//}
+
+	$stmt1 = $conn_sql->stmt_init();
+	//"SELECT Requests.req_id FROM Users INNER JOIN Requests ON Users.user_id = Requests.user_id WHERE Users.email=? AND Requests.filename=? AND Requests.resolution=? AND Requests.combi=? AND Requests.multi=? AND Requests.waters=? AND Requests.threed=? AND Requests.confs=? AND Requests.freq=? AND Requests.step=? AND Requests.dstep=? AND Requests.molList=? AND Requests.modList=? AND Requests.cutList=?;"
+	//bind_param("sssiiiiiiddsss", $email, $rawname, $res, intval($combi), intval($multiple), intval($waters), intval($threed), $confs, $freq, $step, $dstep, $molList, $modList, $cutList);
+	$stmt1 = $conn_sql->prepare("SELECT Requests.req_id, Users.max_requests FROM Requests INNER JOIN Users ON Requests.user_id = Users.user_id WHERE Users.email=?");
+	$stmt1->bind_param("s", $email);
+	$stmt1->execute();
+
+	$stmtRes = $stmt1->get_result();
+	$currReqs = $stmtRes->num_rows;
+	$row = $stmtRes->fetch_assoc();
+
+	if ($row["max_requests"] >= $currReqs) {
+
+		$stmt2 = $conn_sql->stmt_init();
+        $stmt2 = $conn_sql->prepare("INSERT INTO Requests (filename, python_used, resolution, combi, multi, waters, threed, confs, freq, step, dstep, molList, modList, cutList, req_id, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)");
+        $stmt2->bind_param("sisiiiiiiddsssi", $rawname, $pyFileUsed, $res, $combi, $multiple, $waters, $threed, $confs, $freq, $step, $dstep, $molList, $modList, $cutList, $emails_id);
+
+        if ($stmt2->execute()) {
+
+        	if (!(ssh2_exec($conn_ssh, $qsub_cmd))) {
+            		endOp("There was an error with your process. If you get this message, please email s.moffat.1@warwick.ac.uk");
+            }
+
+		} else {
+        	endOp("There was an error adding your request to the queue: " . mysqli_stmt_error($stmt2));
+		}
+	} else {
+
+		die("This request is already being processed. You will be emailed upon an update to your request.");
+
+	}
+
+	//echo print_r(posix_g	if () {
+//etpwuid(posix_geteuid()));
 	endOp("request submitted. Check your emails for updates and confirmation.\n DEV MODE: no email sent, check contents of /storage/disqs/phsbqz/pdb_des/ on CSC server.");
 
 	//ends program and deletes file.
