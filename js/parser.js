@@ -115,30 +115,31 @@ function check() {
 
 var form = document.querySelector("form");
 
+var subRes;
 form.addEventListener("submit", function (e) {
   
   // Prevents the standard submit event
-  e.preventDefault();
+	e.preventDefault();
 
 	var result = check();
 	if (result !== "Success") {
-		alert(result); 
 		throw(result);
 	}
 
-  var fData = new FormData(this);
+	var fData = new FormData(this);
   // Optional. Append custom data.
 	$.each(params, function(key, value){
 	  fData.append(key, value);
 	})
-	
-  $.ajax({
+
+	$.ajax({
     url: window.location.pathname + "php/index.php",
 	type: 'POST',
     data: fData,
-    async: false,
+    async: true,
     success: function (data) {
-   	alert(data)
+    	console.log(data);
+    	subRes = JSON.parse(data);
     },
     cache: false,
     contentType: false,
@@ -148,7 +149,48 @@ form.addEventListener("submit", function (e) {
   return false;
 
 }, false);
-	
+
+var originalHeight;
+$(document).ready(function () {
+    $("#loading_gif").hide();
+    $.ajaxSetup({
+        'beforeSend' : function() {
+        	console.log("KKKSSK");
+            $('#loading_gif').show();
+            $("#process").prop("disabled", true);
+            $("#tos").prop("disabled", true);
+        },
+        'complete'   : function() {
+            originalHeight = parseInt($('#main').height());
+            $('#loading_gif').hide();
+            $("#process").prop("disabled", false);
+            $("#tos").prop("disabled", false);
+            $('.FadeOnSubmit').fadeOut();
+            var newHeight = parseInt($('#main').height()) - (parseInt($("#titleHeightRef").height()) + parseInt($("#toSend").height()));
+			$("#main").animate({height:newHeight});
+            var toAdd = "<div id='responseHeightRef'><h2>" + subRes.title +"</h2>" + subRes.text + "<p></p></div>";
+            setTimeout(function() {
+                $(toAdd).hide().appendTo("#main").fadeIn();
+                if (subRes.outcome == "Failure") {
+                	var fButton = $("<button id='retForm' onClick='returnToForm()' type=\"button\" class=\"btn btn-secondary\">Return to form</button>");
+                	$('#responseHeightRef').append(fButton.clone());
+				}
+                var newNewHeight = parseInt($('#main').height()) + parseInt($('#responseHeightRef').height()); // + (parseInt($('#retForm').height())/100000000 || 0 );
+                $("#main").animate({height:newNewHeight});
+            }, 1000);
+        }
+    });
+});
+
+function returnToForm() {
+
+	$('#responseHeightRef').fadeOut();
+	$('#retForm').fadeOut();
+    $('.FadeOnSubmit').fadeIn();
+
+    $('#main').animate({height:originalHeight});
+}
+
 function regEx(subj, exp) {
 	var re = new RegExp(exp);
 	return re.test(subj);
@@ -162,13 +204,6 @@ function validateEmail(email) {
 function tosClick() {
 	tos = $("#tos").prop("checked");
 	$("#process").prop("disabled", !tos);
-}
-
-function fadeOut() {
-	$('#foo').fadeOut();
-}
-function fadeIn() { 
-	$('#foo').fadeIn();
 }
 
 if ($("#tos").prop("checked") == false) {

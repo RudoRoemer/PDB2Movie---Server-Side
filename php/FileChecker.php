@@ -9,6 +9,9 @@
         protected $checkRes;
 
         protected function baseCheck() {
+
+            global $configs;
+
             try {
 
                 if ($this->hashedName == null) {
@@ -44,12 +47,14 @@
                          $flag = true;
                     }
                 }
-                unset($mimeType);
+
                 if ($flag === false) {
                     throw new RuntimeException('Incorrect filetype ' . $mtype . " " . $mimeType . " String comparison result: " . strcmp($mtype, $mimeType));
                 }
 
-                $this->tmpLocation = sprintf('/var/www/html/php/pdb_tmp/%s.%s', $this->hashedName, $this->ext);	
+                unset($mimeType);
+
+                $this->tmpLocation = sprintf($configs["localDirectory"] . '/php/pdb_tmp/%s.%s', $this->hashedName, $this->ext);
 		$this->checkRes = "Success"; 
 
             } catch (RuntimeException $e) {

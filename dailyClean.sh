@@ -12,6 +12,6 @@ for file in ./download/* ; do
         fi
 done
 
-echo "This ran $(date)">>$log
-
 ssh $remoteUser@$remoteServer 'cd /storage/disqs/phsbqz && ./garbageCollection.sh'
+
+mysql -u admin -p'penicillin_loves_beta_lactamase' -D db_pdb2movie -e"INSERT INTO RequestsHistory SELECT * FROM Requests;DELETE FROM Requests WHERE filename='$purename';UPDATE Users SET current_requests = 0"

@@ -29,6 +29,7 @@
                         $this->checkRes = sprintf("At least one unexpected character found at line %s of .pdb file.", $lCount);
                         break;
                     }
+
                     $lCount++;/**/
 
                 }

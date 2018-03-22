@@ -2,7 +2,8 @@
 
 purename=$1
 log=/var/www/html/query.txt
-query=mysql -u admin -p'penicillin_loves_beta_lactamase' -D 'db_pdb2movie' -e 'DELETE FROM Requests WHERE filename='$purename
+
+mysql -u admin -p'penicillin_loves_beta_lactamase' -D db_pdb2movie -e"DELETE FROM Requests WHERE filename='$purename'"
 
 echo $query>>$log
 eval $query

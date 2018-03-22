@@ -1,0 +1,12 @@
+
+mysql -u admin -p'penicillin_loves_beta_lactamase' -D 'db_pdb2movie' -e 'DELETE FROM Requests WHERE filename='0dc9859c3bc6e8744fd975cc3bb10fd6d6a1bc59
+mysql -u admin -p'penicillin_loves_beta_lactamase' -D 'db_pdb2movie' -e 'DELETE FROM Requests WHERE filename='0dc9859c3bc6e8744fd975cc3bb10fd6d6a1bc59'
+mysql -u admin -p'penicillin_loves_beta_lactamase -D db_pdb2movie -e DELETE FROM Requests WHERE filename='0dc9859c3bc6e8744fd975cc3bb10fd6d6a1bc59'
+mysql -u admin -p'penicillin_loves_beta_lactamase -D db_pdb2movie -e DELETE FROM Requests WHERE filename=0dc9859c3bc6e8744fd975cc3bb10fd6d6a1bc59
+mysql -u admin -p'penicillin_loves_beta_lactamase -D db_pdb2movie -e DELETE FROM Requests WHERE filename=0dc9859c3bc6e8744fd975cc3bb10fd6d6a1bc59
+
+mysql -u admin -p'penicillin_loves_beta_lactamase' -D db_pdb2movie -e DELETE FROM Requests WHERE filename='0dc9859c3bc6e8744fd975cc3bb10fd6d6a1bc59'
+mysql -u admin -p'penicillin_loves_beta_lactamase' -D db_pdb2movie -e DELETE FROM Requests WHERE filename='0dc9859c3bc6e8744fd975cc3bb10fd6d6a1bc59'
+mysql -u admin -p'penicillin_loves_beta_lactamase' -D db_pdb2movie -e'DELETE FROM Requests WHERE filename='0dc9859c3bc6e8744fd975cc3bb10fd6d6a1bc59''
+
+
