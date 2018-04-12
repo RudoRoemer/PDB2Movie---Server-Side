@@ -1,7 +1,9 @@
 <?php
 
-	$configs = parse_ini_file("../config.conf");
-
+	if (!$configs = parse_ini_file("../../config1.conf")) {
+		endOp(jsonFormat("failure","Cnfiguration error", "Could not load config file on web server."));
+	}
+	
 	include "FileChecker.php";
 	include "PdbChecker.php";
 	include "PythonChecker.php";
@@ -17,15 +19,16 @@
 
  	$pdbFile = new PdbChecker($sha1Final);
 	if ($pdbFile->didItPass() !== "Success"){
-    		endOp(jsonFormat("Success", "Thank you for Submitting", ".pdb file: ")); //. $pdbFile->didItPass()));
+    		endOp(jsonFormat("Failure", "Somethin has gone wrong", "The PDB file send did not pass authentication " . $pdbFile->didItPass())); //. $pdbFile->didItPass()));
 	}
 	$newLoc = $pdbFile->getTmpLocation();	
 	$pyFileUsed = file_exists($_FILES['pyFile']['tmp_name']);
 	if ($pyFileUsed) {
-        	$pythonFile = new PythonChecker(sha1Final);
+        	$pyFile = new PythonChecker($sha1Final);
         	if ($pyFile->didItPass() !== "Success"){
             		endOp(jsonFormat("Failure", "Something has gone wrong", ".py file: " . $pyFile->didItPass()));
 		} else {
+			$newLocPyth = $pyFile->getTmpLocation();
 			move_uploaded_file($_FILES['pyFile']['tmp_name'], $pyFile->getTmpLocation());
 		}
 	}
@@ -112,7 +115,7 @@
 
 	if (!$auth) {
 		var_dump($auth);
-		endOp(jsonFormat("Failure", "Something has gone wrong","authentication failure. Check with admin.\n"));
+		endOp(jsonFormat("Failure", "Something has gone wrong","authentication failure."));
 	}
 	
 	
@@ -125,7 +128,7 @@
 	}
 	if ($pyFileUsed) {
 		if (!(ssh2_scp_send($conn_ssh, $newLocPyth, $location . $user . "/pdb_tmp/" . $pyName ))) {
-			endOp(jsonFormat("Failure", "Something has gone wrong","Error uploading python file to processing server."));
+			endOp(jsonFormat("Failure", "Something has gone wrong","Error uploading python file to processing server. newLocPyth: " . $newLocPyth . " fullLoc: " . $location . $user . "/pdb_tmp/" . $pyName));
 		}
 	}
 	//if the optional params are empty or equal spaces then add "NULL" so argument fits syntax of qsub on torque server whilst and for code to remove from qsub submission
@@ -139,7 +142,7 @@
                 $cutList = "NULL";
         }
 
-	$qsub_cmd = sprintf('cd %s%s && qsub -N %s -v LOC="%s",USER="%s",NAME="%s",RES="%s",WATERS="%s",COMBI="%s",MULTIPLE="%s",THREED="%s",CONFS="%s",FREQ="%s",STEP="%s",DSTEP="%s",EMAIL="%s",MOLLIST="%s",MODLIST="%s",CUTLIST="%s" -q taskfarm %s%s/submit.pbs', 	
+	$qsub_cmd = sprintf('cd %s%s && qsub -N %s -v LOC="%s",USER="%s",NAME="%s",RES="%s",WATERS="%s",COMBI="%s",MULTIPLE="%s",THREED="%s",CONFS="%s",FREQ="%s",STEP="%s",DSTEP="%s",EMAIL="%s",MOLLIST="%s",MODLIST="%s",CUTLIST="%s",PYNAME="%s" -q taskfarm %s%s/submit.pbs', 	
 	$location,
 	$user,
 	$name,
@@ -159,6 +162,7 @@
 	$molList, 
 	$modList, 
 	$cutList,
+	$pyName,
 	$location,
 	$user);
 
@@ -180,19 +184,18 @@
     $stmt->execute();
 	$sqlRes = $stmt->get_result();
 	$row = $sqlRes->fetch_assoc();
-	$userID = $row["user_id"];
 
 	if (!$row) {
         $stmt = $conn_sql->stmt_init();
-        $stmt = $conn_sql->prepare("INSERT INTO (email, max_request, user_id, current_requests) Users VALUES (?, 3, NULL, 0);");
+        $stmt = $conn_sql->prepare("INSERT INTO Users (email, max_requests, user_id, current_requests, blacklisted) VALUES (?, 3, NULL, 0, 0);");
         $stmt->bind_param("s", $email);
         $stmt->execute();
 
-        $emails_id = mysqli_stmt_insert_id($stmt);
+        $userID = mysqli_stmt_insert_id($stmt);
 
 	} else {
 
-		$emails_id = $row["user_id"];
+		$userID = $row["user_id"];
 
 	}
 
@@ -208,12 +211,7 @@
 	$stmt1->execute();
 
 	$stmtRes = $stmt1->get_result();
-	$currReqs = $stmtRes->num_rows;
 	$row = $stmtRes->fetch_assoc();
-
-	$stmt = $conn_sql->stmt_init();
-	$stmt = $conn_sql->prepare("UPDATE Users SET current_requests = current_requests + 1 WHERE user_id=?");
-	$stmt->bind_param("s", $userID);
 
 	$stmt = $conn_sql->stmt_init();
 	$stmt = $conn_sql->prepare("SELECT current_requests, max_requests FROM Users WHERE user_id=?");
@@ -225,27 +223,40 @@
 	$currReqs = $fetch["current_requests"];
 	$maxReqs = $fetch["max_requests"];
 
+	$stmt = $conn_sql->stmt_init();
+	$stmt = $conn_sql->prepare("SELECT complete FROM Requests WHERE filename=? AND python_used=? AND resolution=? AND combi=? AND multi=? AND waters=? AND threed=? AND confs=? AND freq=? AND step=? AND dstep=? AND molList=? AND modList=? AND cutList=?");
+	$stmt->bind_param("sisiiiiiiddsss", $rawname, $pyFileUsed, $res, intval($combi), intval($multiple), intval($waters), intval($threed), $confs, $freq, $step, $dstep, $molList, $modList, $cutList);
+	$stmt->execute();
+	$fetchRes = $stmt->get_result();
+	$complete = $fetchRes->fetch_assoc()["complete"];
 
-	if ($maxReqs > $currReqs) {
+	if (($maxReqs > $currReqs)) {
+		if (is_null($complete) || $complete == 1) {
 
-        $stmt = $conn_sql->stmt_init();
-        $stmt = $conn_sql->prepare("UPDATE Users SET current_requests = current_requests + 1 WHERE user_id=?");
-        $stmt->bind_param("s", $userID);
+            $stmt = $conn_sql->stmt_init();
+            $stmt = $conn_sql->prepare("UPDATE Users SET current_requests = current_requests + 1 WHERE user_id=?");
+            $stmt->bind_param("s", $userID);
 
-		$stmt2 = $conn_sql->stmt_init();
-        $stmt2 = $conn_sql->prepare("INSERT INTO Requests (filename, python_used, resolution, combi, multi, waters, threed, confs, freq, step, dstep, molList, modList, cutList, req_id, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)");
-        $stmt2->bind_param("sisiiiiiiddsssi", $rawname, $pyFileUsed, $res, $combi, $multiple, $waters, $threed, $confs, $freq, $step, $dstep, $molList, $modList, $cutList, $emails_id);
+	    echo $pyFlieUsed;
+            $stmt2 = $conn_sql->stmt_init();
+            $stmt2 = $conn_sql->prepare("INSERT INTO Requests (filename, python_used, resolution, combi, multi, waters, threed, confs, freq, step, dstep, molList, modList, cutList, req_id, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)");
+            $stmt2->bind_param("sisiiiiiiddsssi", $rawname, $pyFileUsed, $res, $combi, $multiple, $waters, $threed, $confs, $freq, $step, $dstep, $molList, $modList, $cutList, $userID);
 
-        if ($stmt->execute() && $stmt2->execute()) {
+            if ($stmt->execute() && $stmt2->execute()) {
 
-        	if (!(ssh2_exec($conn_ssh, $qsub_cmd))) {
-            	endOp(jsonFormat("Failure", "Something has gone wrong","There was an error with your process. If you get this message, please email s.moffat.1@warwick.ac.uk"));
+                if (!(ssh2_exec($conn_ssh, $qsub_cmd))) {
+                    endOp(jsonFormat("Failure", "Something has gone wrong","There was an error with your process. If you get this message, please email s.moffat.1@warwick.ac.uk"));
+                } else {
+
+                	//'++currReqs' used to save processing time of requests from the database the updated version of current requests which, when this code section is ran, will only be the same value++
+                    endOp(jsonFormat("Success", "Thank You for Your Submission", "You will be sent an email to confirm when the order has begun processing and when your files are ready for download. You have used " . ++$currReqs . "/" . $maxReqs . " of your daily requests."));
+                }
+
             } else {
-        		endOp(jsonFormat("Success", "Thank Your for Your Submission", "You will be sent an email to confirm when the order has begun processing and when your files are ready for download."));
-			}
-
+                endOp(jsonFormat("Failure", "Something has gone wrong","There was an error adding your request to the queue: " . mysqli_stmt_error($stmt2)));
+            }
 		} else {
-        	endOp(jsonFormat("Failure", "Something has gone wrong","There was an error adding your request to the queue: " . mysqli_stmt_error($stmt2)));
+			endOp(jsonFormat("Failure", "Something has gone wrong", "This requests is currently being processed. Please wait for this to be completed before requesting it again."));
 		}
 	} else {
 		$fff = jsonFormat("Failure", "Something has gone wrong","You have Reached your daily limit of " . $currReqs . "/" . $maxReqs . ". This will be reset at 00:00:00 GMT.");

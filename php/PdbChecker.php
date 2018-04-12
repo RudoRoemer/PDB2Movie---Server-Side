@@ -26,8 +26,12 @@
 
                     $san = filter_var($str, FILTER_SANITIZE_SPECIAL_CHARS);
                     if ($san !== $str && substr($str,0,6) !== "REMARK") {
-                        $this->checkRes = sprintf("At least one unexpected character found at line %s of .pdb file.", $lCount);
-                        break;
+                        if (strpos($str, "'") !== false && (strpos($str, "HETNAM") === false AND strpos($str, "HETATM") === false)) {
+                            $hasPos = strpos($str, "'");
+                            $isHet = strpos($str, "HETNAM");
+                            $this->checkRes = sprintf(". At least one unexpected character found at line %s of .pdb file. hasApos: %s isHet: %s str: %s", $lCount,  $hasPos, $isHet, $str);
+                            break;
+                        }
                     }
 
                     $lCount++;/**/

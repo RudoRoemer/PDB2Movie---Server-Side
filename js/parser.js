@@ -171,10 +171,10 @@ $(document).ready(function () {
             var toAdd = "<div id='responseHeightRef'><h2>" + subRes.title +"</h2>" + subRes.text + "<p></p></div>";
             setTimeout(function() {
                 $(toAdd).hide().appendTo("#main").fadeIn();
-                if (subRes.outcome == "Failure") {
-                	var fButton = $("<button id='retForm' onClick='returnToForm()' type=\"button\" class=\"btn btn-secondary\">Return to form</button>");
-                	$('#responseHeightRef').append(fButton.clone());
-				}
+                $('#responseHeightRef').show();
+                var fButton = $("<button id='retForm' onClick='returnToForm()' type='button' class='btn btn-secondary'>Return to form</button>");
+                $('#responseHeightRef').append(fButton);
+
                 var newNewHeight = parseInt($('#main').height()) + parseInt($('#responseHeightRef').height()); // + (parseInt($('#retForm').height())/100000000 || 0 );
                 $("#main").animate({height:newNewHeight});
             }, 1000);
@@ -184,8 +184,8 @@ $(document).ready(function () {
 
 function returnToForm() {
 
+	$('#responseHeightRef').remove();
 	$('#responseHeightRef').fadeOut();
-	$('#retForm').fadeOut();
     $('.FadeOnSubmit').fadeIn();
 
     $('#main').animate({height:originalHeight});

@@ -6,9 +6,9 @@
 
             $this->hashedName = $uniqueFileName;
             $this->file = "pyFile";
-            $this->mimeTypes = array("application/x-python-code". "text/x-python");
+            $this->mimeTypes = array("application/x-python-code", "text/x-python",  "text/plain");
             $this->ext = "py";
-            return check();
+            return $this->check();
 
         }
 
